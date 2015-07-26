@@ -1,0 +1,6 @@
+{
+    "require": {
+        "slim/slim": "~2.0",
+        "slim/logger": "0.1.*"
+    }
+}
