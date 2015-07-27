@@ -74,7 +74,7 @@ require 'vendor/autoload.php';
      *          
      */
     function listExt4($path) {
-        echo "path = ".$path."\n\n";
+        //echo "path = ".$path."\n\n";
         /* You have to pass "app" it in like this:
          *      $app->put('/get-connections',function() use ($app) {
          * OR
@@ -97,47 +97,55 @@ require 'vendor/autoload.php';
          
          */
         $files = listDir($path);
-        // works so far
-        foreach ($files as $file) {
-            print_r(array_values($file));
-            printf("<br>");
-        }
-        $dirJson = genJsonForOcFileList($files);
-        print_r($dirJson);
-        //return $dirJson;
+        $log->info("listDir");
+        $log->info($files);
+        //print_r($files);
+        //print_r("<br>");
+        // to Json
+        //echo json_encode($files);
+        
+        // put IDs into array
+        $filesWithIds = genIdsForDirContent($files);
+        $log->info("withIDs");
+        $log->info($filesWithIds);
+        // // to OC filelist format (result.data.files in recover filelist.js)
+        // function just adds, removes and formats stuff for JSON-Filelist
+        $filelistJson = genJsonForOcFileList(json_encode($filesWithIds));
+        $log->info("fileListFinal/JSON");
+        $log->info($filelistJson);
+        // unsorted filelist, will try sorting it on client side
+        return $filelistJson;
     } // end listExt4
     
-    // get permissions of given file
-    // see: http://php.net/manual/de/function.readdir.php
-    function permission($filename) {
-        $perms = fileperms($filename);
-
-        if     (($perms & 0xC000) == 0xC000) { $info = 's'; }
-        elseif (($perms & 0xA000) == 0xA000) { $info = 'l'; }
-        elseif (($perms & 0x8000) == 0x8000) { $info = '-'; }
-        elseif (($perms & 0x6000) == 0x6000) { $info = 'b'; }
-        elseif (($perms & 0x4000) == 0x4000) { $info = 'd'; }
-        elseif (($perms & 0x2000) == 0x2000) { $info = 'c'; }
-        elseif (($perms & 0x1000) == 0x1000) { $info = 'p'; }
-        else                                 { $info = 'u'; }
-
-        // owner
-        $info .= (($perms & 0x0100) ? 'r' : '-');
-        $info .= (($perms & 0x0080) ? 'w' : '-');
-        $info .= (($perms & 0x0040) ? (($perms & 0x0800) ? 's' : 'x' ) : (($perms & 0x0800) ? 'S' : '-'));
-
-        // group
-        $info .= (($perms & 0x0020) ? 'r' : '-');
-        $info .= (($perms & 0x0010) ? 'w' : '-');
-        $info .= (($perms & 0x0008) ? (($perms & 0x0400) ? 's' : 'x' ) : (($perms & 0x0400) ? 'S' : '-'));
-
-        // others
-        $info .= (($perms & 0x0004) ? 'r' : '-');
-        $info .= (($perms & 0x0002) ? 'w' : '-');
-        $info .= (($perms & 0x0001) ? (($perms & 0x0200) ? 't' : 'x' ) : (($perms & 0x0200) ? 'T' : '-'));
-
-        return $info;
+    // easier to gen id with array than with json
+    function genIdsForDirContent($dirContent) {
+        foreach ($dirContent as $key => $file) {
+            // print_r($key); -> 0,1,2
+            //$file[$key]=
+            // append id to the front of each element
+            array_unshift($file, "[id] => ".$key);
+            //print_r($file);
+            //print_r("<br>");
+        }
+        // dirContent unverändert! -> auf referenz des arrays arbeiten?
+        return $dirContent;
     }
+    
+     /*
+     * generate JSON format for ownCloud filelist in expected format
+     * @param $files: files and directories from processDir function
+     * @return JSON-Data to be processed by OC Recover App Lib/Helper
+      * 
+      * first edit array, then gen Json, or just work on Json text file?
+      * 
+     */
+    function genJsonForOcFileList($files){
+        // surround with "files" and braces
+        $tmpCleanFilelist = "{\"files\": ".$files."}";
+        return $tmpCleanFilelist;
+    }
+    
+    
     /*
      * adapted from: http://php.net/manual/de/function.readdir.php
      * processes dir on local file system
@@ -169,15 +177,6 @@ require 'vendor/autoload.php';
         return $dirObjects;
     }
     
-    /*
-     * generate JSON format for ownCloud filelist in expected format
-     * @param $files: files and directories from processDir function
-     * @return JSON-Data to be processed by OC Recover App Lib/Helper
-     */
-    function genJsonForOcFileList($files){
-        
-    }
-    
     // $app->get('/files/search:filename', 'search'); 
     function search($filename) {
         echo "filename = ".$filename;
@@ -191,6 +190,38 @@ require 'vendor/autoload.php';
         $app = Slim::getInstance();
         $log = $app->getLog();
         $log->info($recoverRequest);
+    }
+    
+    // get permissions of given file
+    // see: http://php.net/manual/de/function.readdir.php
+    function permission($filename) {
+        $perms = fileperms($filename);
+
+        if     (($perms & 0xC000) == 0xC000) { $info = 's'; }
+        elseif (($perms & 0xA000) == 0xA000) { $info = 'l'; }
+        elseif (($perms & 0x8000) == 0x8000) { $info = '-'; }
+        elseif (($perms & 0x6000) == 0x6000) { $info = 'b'; }
+        elseif (($perms & 0x4000) == 0x4000) { $info = 'd'; }
+        elseif (($perms & 0x2000) == 0x2000) { $info = 'c'; }
+        elseif (($perms & 0x1000) == 0x1000) { $info = 'p'; }
+        else                                 { $info = 'u'; }
+
+        // owner
+        $info .= (($perms & 0x0100) ? 'r' : '-');
+        $info .= (($perms & 0x0080) ? 'w' : '-');
+        $info .= (($perms & 0x0040) ? (($perms & 0x0800) ? 's' : 'x' ) : (($perms & 0x0800) ? 'S' : '-'));
+
+        // group
+        $info .= (($perms & 0x0020) ? 'r' : '-');
+        $info .= (($perms & 0x0010) ? 'w' : '-');
+        $info .= (($perms & 0x0008) ? (($perms & 0x0400) ? 's' : 'x' ) : (($perms & 0x0400) ? 'S' : '-'));
+
+        // others
+        $info .= (($perms & 0x0004) ? 'r' : '-');
+        $info .= (($perms & 0x0002) ? 'w' : '-');
+        $info .= (($perms & 0x0001) ? (($perms & 0x0200) ? 't' : 'x' ) : (($perms & 0x0200) ? 'T' : '-'));
+
+        return $info;
     }
     
     $app->run();
