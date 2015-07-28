@@ -74,7 +74,6 @@ require 'vendor/autoload.php';
      *          
      */
     function listExt4($path) {
-        //echo "path = ".$path."\n\n";
         /* You have to pass "app" it in like this:
          *      $app->put('/get-connections',function() use ($app) {
          * OR
@@ -84,53 +83,35 @@ require 'vendor/autoload.php';
         $app = Slim\Slim::getInstance();
         $log = $app->getLog();
         $log->info($path);
-        /* 
-         * now using function process dir
-        if ($handle = opendir($path)) {
-            while (false !== ($entry = readdir($handle))) {
-                if ($entry != "." && $entry != "..") {
-                    echo "$entry\n";
-                }
-            }
-            closedir($handle);
-        }
-         
-         */
+        
         $files = listDir($path);
-        $log->info("listDir");
-        $log->info($files);
         //print_r($files);
         //print_r("<br>");
-        // to Json
-        //echo json_encode($files);
-        
-        // put IDs into array
-        $filesWithIds = genIdsForDirContent($files);
-        $log->info("withIDs");
-        $log->info($filesWithIds);
+               
         // // to OC filelist format (result.data.files in recover filelist.js)
+        // adapt file object in listDir, to meet basic requirements
         // function just adds, removes and formats stuff for JSON-Filelist
-        $filelistJson = genJsonForOcFileList(json_encode($filesWithIds));
+        $filelistJson = genJsonForOcFileList(json_encode($files));
         $log->info("fileListFinal/JSON");
         $log->info($filelistJson);
-        // unsorted filelist, will try sorting it on client side
-        return $filelistJson;
+        // further sorting may need to be done on the client side (use client ressources insted of server ressources) 
+        echo $filelistJson;
     } // end listExt4
     
-    // easier to gen id with array than with json
+    /* easier to gen id with array than with json
+    // NOW within file object of listDir!!!
     function genIdsForDirContent($dirContent) {
         foreach ($dirContent as $key => $file) {
-            // print_r($key); -> 0,1,2
-            //$file[$key]=
             // append id to the front of each element
-            array_unshift($file, "[id] => ".$key);
-            //print_r($file);
-            //print_r("<br>");
+            array_unshift($file, $key);
+            array_unshift($file, $key);
+            $dirContent[$key]=$file;
         }
-        // dirContent unverändert! -> auf referenz des arrays arbeiten?
-        return $dirContent;
+        //var_dump($dirContent);
+        return $dirContent;   
     }
-    
+     */
+     
      /*
      * generate JSON format for ownCloud filelist in expected format
      * @param $files: files and directories from processDir function
@@ -140,12 +121,12 @@ require 'vendor/autoload.php';
       * 
      */
     function genJsonForOcFileList($files){
+        // replace 0 with id - obsolete, see listDir()
+        //$files=str_replace('{"0":', '{"id":', $files);
         // surround with "files" and braces
         $tmpCleanFilelist = "{\"files\": ".$files."}";
         return $tmpCleanFilelist;
     }
-    
-    
     /*
      * adapted from: http://php.net/manual/de/function.readdir.php
      * processes dir on local file system
@@ -161,18 +142,52 @@ require 'vendor/autoload.php';
         }
         $dirHandle  = opendir($dir);
         $dirObjects = array();
+        // set date format to german, to be set in php.ini, not required for OC, there german words are used!
+        // Attention: Server needs to support given locale! => perhaps shouldn't do that
+        // $newLocale = setlocale(LC_TIME, 'de_DE', 'de_DE.UTF-8');
+        // counter for file ID
+        $i = 0;
         while ($object = readdir($dirHandle)) {
             if (!in_array($object, array('.', '..'))) {
                 $filename = $dir . $object;
+                // create file object according to JSON file expected by recover app filelist
                 $fileObject = array(
-                    'name' => $object,
-                    'size' => filesize($filename),
-                    'perm' => permission($filename),
-                    'type' => filetype($filename),
-                    'time' => date("d F Y H:i:s", filemtime($filename))
+                    'id'            => $i,
+                    'parentId'      => 'null',
+                    // see ownCloud core/apps/files/lib/helper/formatFileInfo(FileInfo $i)
+                    // -> \OCP\Util::formatDate($i['mtime']);
+                    // ---> Deprecated 8.0.0 Use \OC::$server->query('DateTimeFormatter') instead
+                    // --> use formatFiles($files) in recover/lib/helper.php
+                    // back to format the date here, how to get german Month?
+                    'date'          => date('d. F Y \u\m H:i:s \M\E\S\Z', filemtime($filename)),
+                    //'date'          => filemtime($filename),
+                    // see ownCloud core/apps/files/lib/helper/formatFileInfo(FileInfo $i)
+                    'mtime'         => filemtime($filename)*1000,
+                    // just using static image for now, for more see: foramtFileInfo(FileInfo $i)
+                    // https://github.com/owncloud/core/blob/master/apps/files/lib/helper.php
+                    // should support all OC filetype, at least file.svg and folder icon
+                    //'icon'          => '/core/core/img/filetypes/file.svg',
+                    'icon'          => null, // -> icon is set within recover
+                    'name'          => $object,
+                    // also static for now!
+                    'permission'    => 1,
+                    //'mimetype'      => 'application/octet-stream',
+                    'mimetype'      => null,
+                    'type'          => filetype($filename),
+                    // size not supported by trashbin, always "null" in original Trashbin
+                    //'size'          => filesize($filename),
+                    'size'          => null,
+                    //'perm'          => permission($filename),
+                    //'type'        => filetype($filename),
+                    'etag'          => 'null',
+                    //'extraData'     => './'.$object.'.'.filemtime($filename)
+                    'extraData'     => './'.$object,
+                    'displayName'   => $object
                 );
                 $dirObjects[] = $fileObject;
+                $i++;
             }
+            
         }
         return $dirObjects;
     }
