@@ -14,6 +14,10 @@ require 'vendor/autoload.php';
  *  
  */
 //class app {
+// print server vars for debugging
+//foreach($_SERVER as $key_name => $key_value) {
+//    print $key_name . " = " . $key_value . "<br>";
+//}    
     //put your code here
     $app = new \Slim\Slim();
     // set some config params
@@ -45,7 +49,12 @@ require 'vendor/autoload.php';
     });
     
     // Using Get HTTP Method and process listExt4 
-    // wie "/" in URL übergeben?  "%2F" funzt nicht!
+    // http://localhost/webservice4recover/index.php/files/listExt4/testdir
+    // how to pass "/" via URL?  "%2F" doesn't work!
+    // --> http://httpd.apache.org/docs/2.2/mod/core.html#allowencodedslashes
+    //      NoDecode -> %2F works!
+    // how to pass further dirs like "testdir2" ? /testdir%2Ftestdir2
+    //  
     $app->get('/files/listExt4/:path', 'listExt4'); 
     
     /*
@@ -80,14 +89,15 @@ require 'vendor/autoload.php';
          *      $app = Slim::getInstance();
          * http://docs.slimframework.com/configuration/names-and-scopes/
          */
+        //var_dump($path);
         $app = Slim\Slim::getInstance();
         $log = $app->getLog();
         $log->info($path);
-        
-        $files = listDir($path);
+        // pass dir and source
+        $files = listDir($path, 'ext4');
         //print_r($files);
         //print_r("<br>");
-               
+           
         // // to OC filelist format (result.data.files in recover filelist.js)
         // adapt file object in listDir, to meet basic requirements
         // function just adds, removes and formats stuff for JSON-Filelist
@@ -133,7 +143,7 @@ require 'vendor/autoload.php';
      * @param $dir: directory to process
      * @return $dirObjects: two dimensional array with files and folders 
      */
-    function listDir($dir) {
+    function listDir($dir, $source) {
         if ($dir[strlen($dir) - 1] != '/') {
             $dir .= '/';
         }
@@ -182,7 +192,9 @@ require 'vendor/autoload.php';
                     'etag'          => 'null',
                     //'extraData'     => './'.$object.'.'.filemtime($filename)
                     'extraData'     => './'.$object,
-                    'displayName'   => $object
+                    'displayName'   => $object,
+                    'dir'           => $dir,
+                    'source'        => $source
                 );
                 $dirObjects[] = $fileObject;
                 $i++;
