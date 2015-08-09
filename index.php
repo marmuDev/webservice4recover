@@ -182,7 +182,8 @@ require 'vendor/autoload.php';
                     // also static for now!
                     'permission'    => 1,
                     //'mimetype'      => 'application/octet-stream',
-                    'mimetype'      => null,
+                    // 'mimetype'      => null, trying to use mimetype for source now
+                    'mimetype'      => $source,
                     'type'          => filetype($filename),
                     // size not supported by trashbin, always "null" in original Trashbin
                     //'size'          => filesize($filename),
@@ -191,6 +192,8 @@ require 'vendor/autoload.php';
                     //'type'        => filetype($filename),
                     'etag'          => 'null',
                     //'extraData'     => './'.$object.'.'.filemtime($filename)
+                    // this will be displayed when hoovering over a file/dir, could be extended with source
+                    //'extraData'     => './'.$object.'('.$source.')',
                     'extraData'     => './'.$object,
                     'displayName'   => $object,
                     'dir'           => $dir,
