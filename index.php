@@ -18,7 +18,6 @@ require 'vendor/autoload.php';
 //foreach($_SERVER as $key_name => $key_value) {
 //    print $key_name . " = " . $key_value . "<br>";
 //}    
-    //put your code here
     $app = new \Slim\Slim();
     // set some config params
     $app->config(array(
@@ -54,8 +53,9 @@ require 'vendor/autoload.php';
     // --> http://httpd.apache.org/docs/2.2/mod/core.html#allowencodedslashes
     //      NoDecode -> %2F works!
     // how to pass further dirs like "testdir2" ? /testdir%2Ftestdir2
+    // now path as optional parameter -> if empty, list baseDir 
     //  
-    $app->get('/files/listExt4/:path', 'listExt4'); 
+    $app->get('/files/listExt4/(:path)', 'listExt4'); 
     
     /*
      * to do: further method to search files within Backups/Snapshots
@@ -82,7 +82,7 @@ require 'vendor/autoload.php';
      * @return dirJson: contents of directory in JSON 
      *          
      */
-    function listExt4($path) {
+    function listExt4($path='/') {
         /* You have to pass "app" it in like this:
          *      $app->put('/get-connections',function() use ($app) {
          * OR
@@ -93,20 +93,112 @@ require 'vendor/autoload.php';
         $app = Slim\Slim::getInstance();
         $log = $app->getLog();
         $log->info($path);
+        
+        // base dir on OC server for snapshots = /gpfs/.snapshots
+        // depends on Server and Source, could become Parameter
+        $baseDir = '/gpfs/.snapshots';
         // pass dir and source
-        $files = listDir($path, 'ext4');
+        //$files = listDir($path, 'ext4');
+        // now via exec() + local script or directly using ls
+        $files = listDirViaExec($baseDir.$path, 'ext4');
         //print_r($files);
         //print_r("<br>");
            
         // // to OC filelist format (result.data.files in recover filelist.js)
         // adapt file object in listDir, to meet basic requirements
         // function just adds, removes and formats stuff for JSON-Filelist
-        $filelistJson = genJsonForOcFileList(json_encode($files));
-        $log->info("fileListFinal/JSON");
-        $log->info($filelistJson);
+    //    $filelistJson = genJsonForOcFileList(json_encode($files));
+    //    $log->info("fileListFinal/JSON");
+    //    $log->info($filelistJson);
         // further sorting may need to be done on the client side (use client ressources insted of server ressources) 
-        echo $filelistJson;
+    //    echo $filelistJson;
+        echo json_encode($files);
     } // end listExt4
+    
+     /*
+     * processes dir on local file system via exec() 
+     * @param $dir: directory to process
+     * @param $source: data source of backuped file or snapshot, to be written in file info
+     * @return $dirObjects: two dimensional array with files and folders 
+     */
+    function listDirViaExec($dir, $source) {
+        if ($dir[strlen($dir) - 1] != '/') {
+            $dir .= '/';
+        }
+        // OS / config dependent, ubuntu = www-data
+        $username='www-data';
+        /* test if e.g. "touch" is denied
+         * marcus@ocdev:/gpfs/.snapshots$ sudo -u www-data touch test
+         * touch: »test“ kann nicht berührt werden: Keine Berechtigung 
+         * ABER: sudo -u www-data find ./ -name gpfs-file1, somit alle commands erlaubt
+         * --> sudo visudo, let www-data only use ls, and later cp. 
+         */
+        //$command = 'sudo -u '.$username.' ls -l ';
+        $command = 'sudo ls -l --time-style=+\(%s\) ';
+        $dirObjects = array();
+        
+        exec($command.$dir, $dirObjects);
+        var_dump($dirObjects);
+        // counter for file/folder ID
+        $i = 0;
+        /* go through retrieved objects and create basic OC files filelist format
+         * array:
+         * array (size=4)
+            0 => string 'total 4' (length=7)
+            1 => string '-rw-r--r-- 1 root root    0 (1439310738) gpfs-file1' (length=51)
+            2 => string '-rw-r--r-- 1 root root    0 (1439310742) gpfs-file2' (length=51)
+            3 => string 'drwxr-xr-x 3 root root 4096 (1439310728) gpfs-folder1' (length=53)
+         * could separate filename using "\d\d\d\d\d\d\d\d\d\d) " but what if a filename consists of such a string
+        while ($object = readdir($dirHandle)) {
+            if (!in_array($object, array('.', '..'))) {
+                $filename = $dir . $object;
+                // create file object according to JSON file expected by recover app filelist
+                $fileObject = array(
+                    'id'            => $i,
+                    'parentId'      => 'null',
+                    // see ownCloud core/apps/files/lib/helper/formatFileInfo(FileInfo $i)
+                    // -> \OCP\Util::formatDate($i['mtime']);
+                    // ---> Deprecated 8.0.0 Use \OC::$server->query('DateTimeFormatter') instead
+                    // --> use formatFiles($files) in recover/lib/helper.php
+                    // back to format the date here, how to get german Month?
+                    'date'          => date('d. F Y \u\m H:i:s \M\E\S\Z', filemtime($filename)),
+                    //'date'          => filemtime($filename),
+                    // see ownCloud core/apps/files/lib/helper/formatFileInfo(FileInfo $i)
+                    'mtime'         => filemtime($filename)*1000,
+                    // just using static image for now, for more see: foramtFileInfo(FileInfo $i)
+                    // https://github.com/owncloud/core/blob/master/apps/files/lib/helper.php
+                    // should support all OC filetype, at least file.svg and folder icon
+                    //'icon'          => '/core/core/img/filetypes/file.svg',
+                    'icon'          => null, // -> icon is set within recover
+                    'name'          => $object,
+                    // also static for now!
+                    'permission'    => 1,
+                    //'mimetype'      => 'application/octet-stream',
+                    // 'mimetype'      => null, trying to use mimetype for source now
+                    'mimetype'      => $source,
+                    'type'          => filetype($filename),
+                    // size not supported by trashbin, always "null" in original Trashbin
+                    //'size'          => filesize($filename),
+                    'size'          => null,
+                    //'perm'          => permission($filename),
+                    //'type'        => filetype($filename),
+                    'etag'          => 'null',
+                    //'extraData'     => './'.$object.'.'.filemtime($filename)
+                    // this will be displayed when hoovering over a file/dir, could be extended with source
+                    //'extraData'     => './'.$object.'('.$source.')',
+                    'extraData'     => './'.$object,
+                    'displayName'   => $object,
+                    'dir'           => $dir,
+                    'source'        => $source
+                );
+                $dirObjects[] = $fileObject;
+                $i++;
+            }
+            
+        }
+         */
+        return $dirObjects;
+    }
     
     /* easier to gen id with array than with json
     // NOW within file object of listDir!!!
@@ -141,6 +233,7 @@ require 'vendor/autoload.php';
      * adapted from: http://php.net/manual/de/function.readdir.php
      * processes dir on local file system
      * @param $dir: directory to process
+     * @param $source: data source of backuped file or snapshot, to be written in file info
      * @return $dirObjects: two dimensional array with files and folders 
      */
     function listDir($dir, $source) {
