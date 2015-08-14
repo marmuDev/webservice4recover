@@ -53,9 +53,13 @@ require 'vendor/autoload.php';
     // --> http://httpd.apache.org/docs/2.2/mod/core.html#allowencodedslashes
     //      NoDecode -> %2F works!
     // how to pass further dirs like "testdir2" ? /testdir%2Ftestdir2
+    //  http://localhost/webservice4recover/index.php/files/listExt4/gpfs-folder1%2Fgpfs-folder2
     // now path as optional parameter -> if empty, list baseDir 
     //  
-    $app->get('/files/listExt4/(:path)', 'listExt4'); 
+    //$app->get('/files/listExt4/(:path)', 'listExt4'); 
+    //$app->get('/files/listGpfsSs/(:path)', 'listGpfsSs'); 
+    // one listDir for all
+    $app->get('/files/listDirGeneric/:path/:source', 'listDirGeneric'); 
     
     /*
      * to do: further method to search files within Backups/Snapshots
@@ -82,7 +86,11 @@ require 'vendor/autoload.php';
      * @return dirJson: contents of directory in JSON 
      *          
      */
-    function listExt4($path='/') {
+    //function listDirGeneric($path='/', $source) {
+    function listDirGeneric($path, $source) {
+        if (substr($path, 0, 1) != '/') {
+            $path = '/'.$path;
+        }
         /* You have to pass "app" it in like this:
          *      $app->put('/get-connections',function() use ($app) {
          * OR
@@ -96,11 +104,11 @@ require 'vendor/autoload.php';
         
         // base dir on OC server for snapshots = /gpfs/.snapshots
         // depends on Server and Source, could become Parameter
-        $baseDir = '/gpfs/.snapshots';
+        //$baseDir = '/gpfs/.snapshots';
         // pass dir and source
-        //$files = listDir($path, 'ext4');
+        $files = genJsonForOcFileList(json_encode(listDir($path, $source)));
         // now via exec() + local script or directly using ls
-        $files = listDirViaExec($baseDir.$path, 'ext4');
+        //$files = listDirViaExec($baseDir.$path, 'ext4');
         //print_r($files);
         //print_r("<br>");
            
@@ -111,9 +119,34 @@ require 'vendor/autoload.php';
     //    $log->info("fileListFinal/JSON");
     //    $log->info($filelistJson);
         // further sorting may need to be done on the client side (use client ressources insted of server ressources) 
-    //    echo $filelistJson;
+    
+        //$log->info(json_encode($files));
+        
+        echo $files;
+    } // end list
+    
+    /* FUNCTIONS
+     * $app->get('/files/listExt4', 'listExt4'); 
+     * path relative to app root!
+     * 
+     * @param $path: directory to be listed
+     * @return dirJson: contents of directory in JSON 
+     *          
+     */
+    function listGpfsSs($path='/') {
+        if (substr($path, 0, 1) != '/') {
+            $path = '/'.$path;
+        }
+        $app = Slim\Slim::getInstance();
+        $log = $app->getLog();
+        $log->info($path);
+        // base dir on OC server for snapshots = /gpfs/.snapshots
+        // depends on Server and Source, could become Parameter
+        $baseDir = '/gpfs/.snapshots';
+        // pass dir and source
+        $files = listDirViaExec($baseDir.$path, 'ext4');
         echo json_encode($files);
-    } // end listExt4
+    } // end listGpfsSs
     
      /*
      * processes dir on local file system via exec() 
@@ -126,6 +159,7 @@ require 'vendor/autoload.php';
             $dir .= '/';
         }
         // OS / config dependent, ubuntu = www-data
+        // use only if command should be run as another user
         $username='www-data';
         /* test if e.g. "touch" is denied
          * marcus@ocdev:/gpfs/.snapshots$ sudo -u www-data touch test
