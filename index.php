@@ -59,7 +59,7 @@ require 'vendor/autoload.php';
     //$app->get('/files/listExt4/(:path)', 'listExt4'); 
     //$app->get('/files/listGpfsSs/(:path)', 'listGpfsSs'); 
     // one listDir for all
-    $app->get('/files/listDirGeneric/:path/:source', 'listDirGeneric'); 
+    $app->get('/files/listDirGeneric/:path/:source/:sortAttribute/:sortDirection', 'listDirGeneric'); 
     
     /*
      * to do: further method to search files within Backups/Snapshots
@@ -87,7 +87,7 @@ require 'vendor/autoload.php';
      *          
      */
     //function listDirGeneric($path='/', $source) {
-    function listDirGeneric($path, $source) {
+    function listDirGeneric($path, $source, $sortAttribute, $sortDirection) {
         if (substr($path, 0, 1) != '/') {
             $path = '/'.$path;
         }
@@ -101,33 +101,28 @@ require 'vendor/autoload.php';
         $app = Slim\Slim::getInstance();
         $log = $app->getLog();
         $log->info($path);
+        $log->info($source);
+        $log->info($sortAttribute);
+        $log->info($sortDirection);
         
         // base dir on OC server for snapshots = /gpfs/.snapshots
         // depends on Server and Source, could become Parameter
-        //$baseDir = '/gpfs/.snapshots';
-        // pass dir and source
-        $files = genJsonForOcFileList(json_encode(listDir($path, $source)));
-        // now via exec() + local script or directly using ls
-        //$files = listDirViaExec($baseDir.$path, 'ext4');
-        //print_r($files);
-        //print_r("<br>");
-           
-        // // to OC filelist format (result.data.files in recover filelist.js)
-        // adapt file object in listDir, to meet basic requirements
-        // function just adds, removes and formats stuff for JSON-Filelist
-    //    $filelistJson = genJsonForOcFileList(json_encode($files));
-    //    $log->info("fileListFinal/JSON");
-    //    $log->info($filelistJson);
-        // further sorting may need to be done on the client side (use client ressources insted of server ressources) 
-    
-        //$log->info(json_encode($files));
-        
-        echo $files;
+        $files = listDir($path, $source);
+        $log->info('usorted Files------------------------------:');
+        $log->info($files);
+        // TO DO: sort files array
+        $sortedFiles = sortFilesArray($files, $sortAttribute, $sortDirection);
+        $log->info('sortedFiles:------------------------------');
+        $log->info($sortedFiles);
+        // json_encode + genJsonForOcFilelist
+        //$ocJsonFiles = genJsonForOcFileList(json_encode($sortedFiles));
+     
+        $ocJsonFiles = genJsonForOcFileList(json_encode($files));
+        $log->info($ocJsonFiles);
+        echo $ocJsonFiles;
     } // end list
     
-    /* FUNCTIONS
-     * $app->get('/files/listExt4', 'listExt4'); 
-     * path relative to app root!
+    /* obsolete -> listDirGeneric!
      * 
      * @param $path: directory to be listed
      * @return dirJson: contents of directory in JSON 
@@ -149,7 +144,7 @@ require 'vendor/autoload.php';
     } // end listGpfsSs
     
      /*
-     * processes dir on local file system via exec() 
+     * processes dir on local file system via exec() - obsolete
      * @param $dir: directory to process
      * @param $source: data source of backuped file or snapshot, to be written in file info
      * @return $dirObjects: two dimensional array with files and folders 
@@ -268,7 +263,7 @@ require 'vendor/autoload.php';
      * processes dir on local file system
      * @param $dir: directory to process
      * @param $source: data source of backuped file or snapshot, to be written in file info
-     * @return $dirObjects: two dimensional array with files and folders 
+     * @return $dirObjects: two dimensional array with files / folders and info on them
      */
     function listDir($dir, $source) {
         if ($dir[strlen($dir) - 1] != '/') {
@@ -309,7 +304,8 @@ require 'vendor/autoload.php';
                     // also static for now!
                     'permission'    => 1,
                     //'mimetype'      => 'application/octet-stream',
-                    // 'mimetype'      => null, trying to use mimetype for source now
+                    // 'mimetype'      => null,
+                    // trying to use mimetype for source now, since there are functions available in OC to get that value
                     'mimetype'      => $source,
                     'type'          => filetype($filename),
                     // size not supported by trashbin, always "null" in original Trashbin
@@ -332,6 +328,28 @@ require 'vendor/autoload.php';
             
         }
         return $dirObjects;
+    }
+    
+    function sortFilesArray($files, $sortAttribute, $sortDirection) {
+        $hash = array();
+    
+        foreach($files as $key => $file) {
+            echo "file";
+            var_dump($file);
+            $hash[$file[$sortAttribute].$key] = $file;
+            echo "hash";
+            var_dump($hash);
+        }
+
+        ($sortDirection === 'desc')? krsort($hash) : ksort($hash);
+
+        $files = array();
+
+        foreach($hash as $file) {
+            $files []= $file;
+        }
+
+        return $files;
     }
     
     // $app->get('/files/search:filename', 'search'); 
