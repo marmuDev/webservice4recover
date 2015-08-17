@@ -59,7 +59,7 @@ require 'vendor/autoload.php';
     //$app->get('/files/listExt4/(:path)', 'listExt4'); 
     //$app->get('/files/listGpfsSs/(:path)', 'listGpfsSs'); 
     // one listDir for all
-    $app->get('/files/listDirGeneric/:path/:source/:sortAttribute/:sortDirection', 'listDirGeneric'); 
+    $app->get('/files/listDirGeneric/:path/:source', 'listDirGeneric'); 
     
     /*
      * to do: further method to search files within Backups/Snapshots
@@ -87,7 +87,7 @@ require 'vendor/autoload.php';
      *          
      */
     //function listDirGeneric($path='/', $source) {
-    function listDirGeneric($path, $source, $sortAttribute, $sortDirection) {
+    function listDirGeneric($path, $source) {
         if (substr($path, 0, 1) != '/') {
             $path = '/'.$path;
         }
@@ -102,21 +102,15 @@ require 'vendor/autoload.php';
         $log = $app->getLog();
         $log->info($path);
         $log->info($source);
-        $log->info($sortAttribute);
-        $log->info($sortDirection);
-        
+                
         // base dir on OC server for snapshots = /gpfs/.snapshots
         // depends on Server and Source, could become Parameter
         $files = listDir($path, $source);
-        $log->info('usorted Files------------------------------:');
-        $log->info($files);
-        // TO DO: sort files array
-        $sortedFiles = sortFilesArray($files, $sortAttribute, $sortDirection);
-        $log->info('sortedFiles:------------------------------');
-        $log->info($sortedFiles);
+        //$log->info('usorted Files------------------------------:');
+        //$log->info($files);
+        // TO DO: sort files array -> in OC pagecontroller!
+        
         // json_encode + genJsonForOcFilelist
-        //$ocJsonFiles = genJsonForOcFileList(json_encode($sortedFiles));
-     
         $ocJsonFiles = genJsonForOcFileList(json_encode($files));
         $log->info($ocJsonFiles);
         echo $ocJsonFiles;
@@ -329,16 +323,16 @@ require 'vendor/autoload.php';
         }
         return $dirObjects;
     }
-    
+    /* sorting has to be done on the whole files array within OC!
     function sortFilesArray($files, $sortAttribute, $sortDirection) {
         $hash = array();
     
         foreach($files as $key => $file) {
-            echo "file";
-            var_dump($file);
+            //echo "file";
+            //var_dump($file);
             $hash[$file[$sortAttribute].$key] = $file;
-            echo "hash";
-            var_dump($hash);
+            //echo "hash";
+            //var_dump($hash);
         }
 
         ($sortDirection === 'desc')? krsort($hash) : ksort($hash);
@@ -348,10 +342,11 @@ require 'vendor/autoload.php';
         foreach($hash as $file) {
             $files []= $file;
         }
-
+        //echo "files";
+        //var_dump($files);
         return $files;
     }
-    
+    */
     // $app->get('/files/search:filename', 'search'); 
     function search($filename) {
         echo "filename = ".$filename;
