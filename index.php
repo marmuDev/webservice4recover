@@ -223,21 +223,7 @@ require 'vendor/autoload.php';
         return $dirObjects;
     }
     
-    /* easier to gen id with array than with json
-    // NOW within file object of listDir!!!
-    function genIdsForDirContent($dirContent) {
-        foreach ($dirContent as $key => $file) {
-            // append id to the front of each element
-            array_unshift($file, $key);
-            array_unshift($file, $key);
-            $dirContent[$key]=$file;
-        }
-        //var_dump($dirContent);
-        return $dirContent;   
-    }
-     */
-     
-     /*
+    /*
      * generate JSON format for ownCloud filelist in expected format
      * @param $files: files and directories from processDir function
      * @return JSON-Data to be processed by OC Recover App Lib/Helper
@@ -323,30 +309,8 @@ require 'vendor/autoload.php';
         }
         return $dirObjects;
     }
-    /* sorting has to be done on the whole files array within OC!
-    function sortFilesArray($files, $sortAttribute, $sortDirection) {
-        $hash = array();
+    // sorting has to be done on the whole files array -> within OC -> pagecontroller!
     
-        foreach($files as $key => $file) {
-            //echo "file";
-            //var_dump($file);
-            $hash[$file[$sortAttribute].$key] = $file;
-            //echo "hash";
-            //var_dump($hash);
-        }
-
-        ($sortDirection === 'desc')? krsort($hash) : ksort($hash);
-
-        $files = array();
-
-        foreach($hash as $file) {
-            $files []= $file;
-        }
-        //echo "files";
-        //var_dump($files);
-        return $files;
-    }
-    */
     // $app->get('/files/search:filename', 'search'); 
     function search($filename) {
         echo "filename = ".$filename;
