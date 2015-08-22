@@ -149,7 +149,7 @@ require 'vendor/autoload.php';
         }
         // OS / config dependent, ubuntu = www-data
         // use only if command should be run as another user
-        $username='www-data';
+        //$username='www-data';
         /* test if e.g. "touch" is denied
          * marcus@ocdev:/gpfs/.snapshots$ sudo -u www-data touch test
          * touch: »test“ kann nicht berührt werden: Keine Berechtigung 
@@ -246,6 +246,12 @@ require 'vendor/autoload.php';
      * @return $dirObjects: two dimensional array with files / folders and info on them
      */
     function listDir($dir, $source) {
+        $snapshot = 'null';
+        // get snapshot number from path
+        if ($source === 'tubfsss') {
+            preg_match("/\/snap_([0-9])\//", $dir, $matches);
+            $snapshot = $matches[1];
+        }
         if ($dir[strlen($dir) - 1] != '/') {
             $dir .= '/';
         }
@@ -260,10 +266,10 @@ require 'vendor/autoload.php';
         // counter for file ID
         $i = 0;
         while ($object = readdir($dirHandle)) {
-            if (!in_array($object, array('.', '..'))) {
+            if (!in_array($object, ['.', '..'])) {
                 $filename = $dir . $object;
                 // create file object according to JSON file expected by recover app filelist
-                $fileObject = array(
+                $fileObject = [
                     'id'            => $i,
                     'parentId'      => 'null',
                     // see ownCloud core/apps/files/lib/helper/formatFileInfo(FileInfo $i)
@@ -272,19 +278,17 @@ require 'vendor/autoload.php';
                     // --> use formatFiles($files) in recover/lib/helper.php
                     // back to format the date here, how to get german Month?
                     'date'          => date('d. F Y \u\m H:i:s \M\E\S\Z', filemtime($filename)),
-                    //'date'          => filemtime($filename),
                     // see ownCloud core/apps/files/lib/helper/formatFileInfo(FileInfo $i)
                     'mtime'         => filemtime($filename)*1000,
                     // just using static image for now, for more see: foramtFileInfo(FileInfo $i)
                     // https://github.com/owncloud/core/blob/master/apps/files/lib/helper.php
-                    // should support all OC filetype, at least file.svg and folder icon
+                    // should support all OC filetype, file.svg and folder icon working
                     //'icon'          => '/core/core/img/filetypes/file.svg',
                     'icon'          => null, // -> icon is set within recover
                     'name'          => $object,
                     // also static for now!
                     'permission'    => 1,
                     //'mimetype'      => 'application/octet-stream',
-                    // 'mimetype'      => null,
                     // trying to use mimetype for source now, since there are functions available in OC to get that value
                     'mimetype'      => $source,
                     'type'          => filetype($filename),
@@ -293,15 +297,16 @@ require 'vendor/autoload.php';
                     'size'          => null,
                     //'perm'          => permission($filename),
                     //'type'        => filetype($filename),
-                    'etag'          => 'null',
-                    //'extraData'     => './'.$object.'.'.filemtime($filename)
+                    // using etag for Snapshot number                    
+                    //'etag'          => 'null',
+                    'etag'          => $snapshot,
                     // this will be displayed when hoovering over a file/dir, could be extended with source
                     //'extraData'     => './'.$object.'('.$source.')',
                     'extraData'     => './'.$object,
                     'displayName'   => $object,
                     'dir'           => $dir,
                     'source'        => $source
-                );
+                    ];
                 $dirObjects[] = $fileObject;
                 $i++;
             }
