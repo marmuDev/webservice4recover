@@ -247,7 +247,7 @@ require 'vendor/autoload.php';
      */
     function listDir($dir, $source) {
         $snapshot = 'null';
-        // get snapshot number from path
+        // get snapshot number from path + use snapshot for check in while below
         if ($source === 'tubfsss') {
             preg_match("/\/snap_([0-9])\//", $dir, $matches);
             $snapshot = $matches[1];
@@ -268,10 +268,17 @@ require 'vendor/autoload.php';
         while ($object = readdir($dirHandle)) {
             if (!in_array($object, ['.', '..'])) {
                 $filename = $dir . $object;
+                // only use e-tag for snapshot id, if tubfsss (or other snapshot with IDs has to be listed)
+                if ($snapshot !== 'null') {
+                    $etag = $snapshot;
+                } else {
+                    $etag = filemtime($filename)*1000;
+                }
                 // create file object according to JSON file expected by recover app filelist
                 $fileObject = [
                     'id'            => $i,
-                    'parentId'      => 'null',
+                    // not part of OC-trashbin-files-array
+                    //'parentId'      => 'null',
                     // see ownCloud core/apps/files/lib/helper/formatFileInfo(FileInfo $i)
                     // -> \OCP\Util::formatDate($i['mtime']);
                     // ---> Deprecated 8.0.0 Use \OC::$server->query('DateTimeFormatter') instead
@@ -284,28 +291,31 @@ require 'vendor/autoload.php';
                     // https://github.com/owncloud/core/blob/master/apps/files/lib/helper.php
                     // should support all OC filetype, file.svg and folder icon working
                     //'icon'          => '/core/core/img/filetypes/file.svg',
-                    'icon'          => null, // -> icon is set within recover
+                    'icon'          => null, // -> icon is set within recover, 'null' -> no icon!
                     'name'          => $object,
                     // also static for now!
-                    'permission'    => 1,
+                    'permissions'    => '1',
                     //'mimetype'      => 'application/octet-stream',
                     // trying to use mimetype for source now, since there are functions available in OC to get that value
                     'mimetype'      => $source,
                     'type'          => filetype($filename),
                     // size not supported by trashbin, always "null" in original Trashbin
                     //'size'          => filesize($filename),
-                    'size'          => null,
+                    //'size'          => 'null',
                     //'perm'          => permission($filename),
                     //'type'        => filetype($filename),
                     // using etag for Snapshot number                    
                     //'etag'          => 'null',
-                    'etag'          => $snapshot,
+                    'etag'          => $etag,
                     // this will be displayed when hoovering over a file/dir, could be extended with source
                     //'extraData'     => './'.$object.'('.$source.')',
-                    'extraData'     => './'.$object,
+                    'extraData'     => './'.$object
+                    /* not part of trashbin-files-Array
                     'displayName'   => $object,
                     'dir'           => $dir,
                     'source'        => $source
+                     * 
+                     */
                     ];
                 $dirObjects[] = $fileObject;
                 $i++;
