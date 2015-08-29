@@ -140,7 +140,7 @@ require 'vendor/autoload.php';
     
      /*
      * processes dir on local file system via exec() - obsolete
-     * @param $dir: directory to process
+     * @param $dir: diurectory to process
      * @param $source: data source of backuped file or snapshot, to be written in file info
      * @return $dirObjects: two dimensional array with files and folders 
      */
@@ -343,7 +343,12 @@ require 'vendor/autoload.php';
         $log->info($source);
         var_dump($file);
         var_dump($source);
-        return $file;
+        if (!$error) {
+            return $file;
+        }
+        else {
+            return '1';
+        }
     }
     
     // get permissions of given file
