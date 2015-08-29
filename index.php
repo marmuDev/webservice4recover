@@ -76,7 +76,8 @@ require 'vendor/autoload.php';
      * how to use parameters (what to recover)
      * 
      */
-    $app->post('/files/recover/:file/:source', 'recoverFile'); 
+    //$app->post('/files/recover/:file/:source', 'recoverFile'); 
+    $app->get('/files/recover/:file/:source', 'recoverFile'); 
     
     /* FUNCTIONS
      * $app->get('/files/listExt4', 'listExt4'); 
@@ -336,10 +337,13 @@ require 'vendor/autoload.php';
     // -> give success info (and go back to last page)
     function recoverFile ($file, $source) {
         //$log = $app->getLog();
-        $app = Slim::getInstance();
+        $app = Slim\Slim::getInstance();
         $log = $app->getLog();
         $log->info($file);
         $log->info($source);
+        var_dump($file);
+        var_dump($source);
+        return $file;
     }
     
     // get permissions of given file
