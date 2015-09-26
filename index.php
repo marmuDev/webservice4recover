@@ -341,14 +341,17 @@ require 'vendor/autoload.php';
         $log = $app->getLog();
         $log->info($file);
         $log->info($source);
-        var_dump($file);
-        var_dump($source);
+        //var_dump($file);
+        //var_dump($source);
+        /*
         if (!$error) {
             return $file;
         }
         else {
             return '1';
         }
+         */
+        return $file;
     }
     
     // get permissions of given file
