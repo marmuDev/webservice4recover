@@ -77,7 +77,7 @@ require 'vendor/autoload.php';
      * 
      */
     //$app->post('/files/recover/:file/:source', 'recoverFile'); 
-    $app->get('/files/recover/:file/:source', 'recoverFile'); 
+    $app->get('/files/recover/:file/:source/:dir/:user/:snapshotId', 'recoverFile'); 
     
     /* FUNCTIONS
      * $app->get('/files/listExt4', 'listExt4'); 
@@ -89,6 +89,12 @@ require 'vendor/autoload.php';
      */
     //function listDirGeneric($path='/', $source) {
     function listDirGeneric($path, $source) {
+        //var_dump($path);
+        $app = Slim\Slim::getInstance();
+        $log = $app->getLog();
+        $log->info('---------------- LISTDIR ----------------');
+        $log->info('path = '.$path);
+        $log->info('source = '.$source);
         if (substr($path, 0, 1) != '/') {
             $path = '/'.$path;
         }
@@ -98,11 +104,6 @@ require 'vendor/autoload.php';
          *      $app = Slim::getInstance();
          * http://docs.slimframework.com/configuration/names-and-scopes/
          */
-        //var_dump($path);
-        $app = Slim\Slim::getInstance();
-        $log = $app->getLog();
-        $log->info($path);
-        $log->info($source);
                 
         // base dir on OC server for snapshots = /gpfs/.snapshots
         // depends on Server and Source, could become Parameter
@@ -140,7 +141,7 @@ require 'vendor/autoload.php';
     
      /*
      * processes dir on local file system via exec() - obsolete
-     * @param $dir: diurectory to process
+     * @param $dir: directory to process
      * @param $source: data source of backuped file or snapshot, to be written in file info
      * @return $dirObjects: two dimensional array with files and folders 
      */
@@ -331,27 +332,42 @@ require 'vendor/autoload.php';
     function search($filename) {
         echo "filename = ".$filename;
     }
-    
+    // TO DO: make generic versio, this is tubfs only!
     // $app->post('/files/recover/:recoverRequest', 'addRecoverRequest'); 
     // solve via get too, since data can be sent and when recoverRequest is ok + stored
     // -> give success info (and go back to last page)
-    function recoverFile ($file, $source) {
-        //$log = $app->getLog();
+    function recoverFile ($file, $source, $dir, $user, $snapshotId) {
+        // source path and destination path depend on source of file/folder
         $app = Slim\Slim::getInstance();
         $log = $app->getLog();
-        $log->info($file);
-        $log->info($source);
+        $log->info('---------------- RECOVER ----------------');
+        $log->info('file = '.$file);
+        $log->info('source = '.$source);
+        $log->info('dir = '.$dir);
+        $log->info('user = '.$user);
+        $log->info('snapshotId = '.$snapshotId);
         //var_dump($file);
         //var_dump($source);
-        /*
-        if (!$error) {
-            return $file;
+        // /tubfs/.snapshots/snap_<snapshotId>/owncloud/data/<user>/files/<dir>/
+        switch ($source) {
+            case 'tubfsss':
+                $recover_source= '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/'.$dir.'/'.$file;
+                break;
+            default:
+                $recover_source= '';
+                break;
         }
-        else {
-            return '1';
-        }
-         */
-        return $file;
+        $log->info('source path = '.$recover_source);
+        // destination depends on source also?
+        // /tubfs/owncloud/data/<user>/recovered/<dir>/
+        $recover_destination = '/tubfs/owncloud/data/'.$user.'/recovered/'.$dir.'/'.$file;
+        $log->info('destination path = '.$recover_destination);
+        $cmd = 'mv '.$recover_source.' '.$recover_destination;
+        $log->info('cmd = '.$cmd);
+        exec($cmd, $output, $return_val);
+        return $return_val;
+         
+        //return $file;
     }
     
     // get permissions of given file
