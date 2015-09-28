@@ -205,7 +205,7 @@ require 'vendor/autoload.php';
                     // size not supported by trashbin, always "null" in original Trashbin
                     //'size'          => filesize($filename),
                     'size'          => null,
-                    //'perm'          => permission($filename),
+                    //'perm'          => getFilePermissions($filename),
                     //'type'        => filetype($filename),
                     'etag'          => 'null',
                     //'extraData'     => './'.$object.'.'.filemtime($filename)
@@ -304,7 +304,7 @@ require 'vendor/autoload.php';
                     // size not supported by trashbin, always "null" in original Trashbin
                     //'size'          => filesize($filename),
                     //'size'          => 'null',
-                    //'perm'          => permission($filename),
+                    //'perm'          => getFilePermissions($filename),
                     //'type'        => filetype($filename),
                     // using etag for Snapshot number                    
                     //'etag'          => 'null',
@@ -360,19 +360,38 @@ require 'vendor/autoload.php';
         $log->info('source path = '.$recover_source);
         // destination depends on source also?
         // /tubfs/owncloud/data/<user>/recovered/<dir>/
-        $recover_destination = '/tubfs/owncloud/data/'.$user.'/recovered/'.$dir.'/'.$file;
+        if ($dir !== '/') {
+            $recover_destination = '/home/'.$user.'/recovered/'.$dir.'/';
+        }
+        else {
+            $recover_destination = '/home/'.$user.'/recovered/';
+        }
         $log->info('destination path = '.$recover_destination);
+        // mkdir if not existent + chown to user
+        // chmod / chown implicitly called by rename, maybe even mkdir is obsolete?
+        if (!file_exists($recover_destination)) {
+            if (!mkdir($recover_destination, 0700, true)) {
+                $log->info('error while trying to mkdir destination path');
+                return 0;
+            }
+        }
+        /* move (copy and delete files) - not using exec!
         $cmd = 'mv '.$recover_source.' '.$recover_destination;
         $log->info('cmd = '.$cmd);
         exec($cmd, $output, $return_val);
-        return $return_val;
+         */
+        if (!rename($recover_source, $recover_destination.$file)) {
+            $log->info('Error while trying to rename (move) file or folder');
+            return 0;
+        }
+        return 1;
          
         //return $file;
     }
     
     // get permissions of given file
     // see: http://php.net/manual/de/function.readdir.php
-    function permission($filename) {
+    function getFilePermissions($filename) {
         $perms = fileperms($filename);
 
         if     (($perms & 0xC000) == 0xC000) { $info = 's'; }
