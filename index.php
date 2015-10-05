@@ -369,11 +369,16 @@ require 'vendor/autoload.php';
         $log->info('destination path = '.$recover_destination);
         // mkdir if not existent + chown to user
         // chmod / chown implicitly called by rename, maybe even mkdir is obsolete?
-        if (!file_exists($recover_destination)) {
+        if (!file_exists($recover_destination)) {  
             if (!mkdir($recover_destination, 0700, true)) {
                 $log->info('error while trying to mkdir destination path');
                 return 0;
             }
+        } 
+        else {
+            // could try to recover files beneath if they do not already
+            //  exist in destination, or rename with "_X"
+            $log->info('directory already exists in destination path!');
         }
         /* move (copy and delete files) - not using exec!
         $cmd = 'mv '.$recover_source.' '.$recover_destination;
