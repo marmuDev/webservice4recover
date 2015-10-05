@@ -376,6 +376,7 @@ require 'vendor/autoload.php';
             }
         } 
         else {
+            // if dir exists, ignore and write to it anywas (for now)            
             // could try to recover files beneath if they do not already
             //  exist in destination, or rename with "_X"
             $log->info('directory already exists in destination path!');
