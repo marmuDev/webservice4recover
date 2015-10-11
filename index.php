@@ -336,12 +336,16 @@ require 'vendor/autoload.php';
     // $app->post('/files/recover/:recoverRequest', 'addRecoverRequest'); 
     // solve via get too, since data can be sent and when recoverRequest is ok + stored
     // -> give success info (and go back to last page)
-    // @return $result[]: first element "success" = 0 | 1, second element "message" for info on error
+    // @return $message: app->halt returns status code and message
     function recoverFile ($file, $source, $dir, $user, $snapshotId) {
-        $result['success'] = 0;
-        $result['message'] = null;
+        $message = 'null';
         // source path and destination path depend on source of file/folder
         $app = Slim\Slim::getInstance();
+        $app->contentType('application/json');
+        $response = $app->response;
+        //$app->response->headers->set('Content-Type', 'application/json');
+        $response->headers->set('Content-Type', 'application/json');
+        $response->setStatus(200);
         $log = $app->getLog();
         $log->info('---------------- RECOVER ----------------');
         $log->info('file = '.$file);
@@ -354,8 +358,14 @@ require 'vendor/autoload.php';
         // /tubfs/.snapshots/snap_<snapshotId>/owncloud/data/<user>/files/<dir>/
         switch ($source) {
             case 'tubfsss':
-                $recover_source = '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/'.$dir.'/'.$file;
-                $recover_source_dir = '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/'.$dir;
+                if ($dir == '/') {
+                    $recover_source = '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/'.$file;
+                    $recover_source_dir = '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/';
+                }
+                else {
+                    $recover_source = '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/'.$dir.'/'.$file;
+                    $recover_source_dir = '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/'.$dir;
+                }
                 break;
             default:
                 $recover_source= '';
@@ -375,22 +385,34 @@ require 'vendor/autoload.php';
         // chmod / chown implicitly called by rename, maybe even mkdir is obsolete?
         if (!file_exists($recover_destination)) {  
             if (!mkdir($recover_destination, 0700, true)) {
-                $log->info('error while trying to mkdir destination path');
-                $result['success'] = 0;
-                $result['message'] = 'error while trying to mkdir destination path';
-                json_encode($result);
+                //$result['success'] = 0;
+                //$result['message'] = 'error while trying to mkdir destination path';
+                $message = 'error while trying to mkdir destination path, aborting recovery!';
+                //return json_encode($result);
+                $log->info($message);
+                echo '{"statusCode":500,"message":"'.$message.'"}';
+                //$app->halt(500, $message);
+                //$response->setStatus(500);
+                //$response->write($message);
             }
         } 
         else {
             // if dir exists, ignore and write to it anywas (for now)            
             // could try to recover files beneath if they do not already
             //  exist in destination, or rename with "_X"
-            $log->info('directory already exists in destination path!');
-            if (count(glob($recover_source_dir.'/')) === 0 ) {
-                $log->info('source directory is empty, aborting recovery!');
-                $result['success'] = 0;
-                $result['message'] = 'source directory is empty, aborting recovery!';
-                return json_encode($result);
+            $log->info('destination directory ('.$recover_destination.') already exists in destination path!');
+            // if source dir empty, we may abort way earlier!
+            // kann nicht mit entfernten Dateien arbeiten, 
+            // da der Zugriff auf die Datei, die bearbeitet werden soll, 
+            // über das Dateisystem des Servers möglich sein muss
+            //if (count(glob($recover_source_dir.'/*')) === 0 ) {
+            if (!glob($recover_source_dir)) {
+                $message = 'source directory ('.$recover_source_dir.') is empty, aborting recovery!';
+                $log->info($message);
+                echo '{"statusCode":500,"message":"'.$message.'"}';
+                //$app->halt(500, $message);
+                //$response->setStatus(500);
+                //$response->write($message);
             }
         }
         /* move (copy and delete files) - not using exec!
@@ -399,11 +421,23 @@ require 'vendor/autoload.php';
         exec($cmd, $output, $return_val);
          */
         if (!rename($recover_source, $recover_destination.$file)) {
-            $log->info('Error while trying to rename (move) file or folder');
-            $result['success'] = 0;
-            $result['message'] = 'Error while trying to rename (move) file or folder';
+            $message = 'Error while trying to rename (move) file or folder';
+            $log->info($message);
         }
-        return json_encode($result);
+        else {
+            $message = 'all good';
+        }
+        //$response->write($message);
+        //$result = $response->finalize();
+        // response is implicitly send back?
+        $log->info(json_encode($message));
+        //header("Content-Type: application/json"); 
+        // echo()’d content is captured in an output buffer and appended to the
+        // response body before the HTTP response is returned to the client
+        //echo json_encode($result);
+        //echo json_encode('200, '.$message);
+        echo '{"statusCode":200,"message":"'.$message.'"}';
+        //return json_encode($result);
         //return 1;
     }
     
