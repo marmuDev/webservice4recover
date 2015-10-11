@@ -336,7 +336,10 @@ require 'vendor/autoload.php';
     // $app->post('/files/recover/:recoverRequest', 'addRecoverRequest'); 
     // solve via get too, since data can be sent and when recoverRequest is ok + stored
     // -> give success info (and go back to last page)
+    // @return $result[]: first element "success" = 0 | 1, second element "message" for info on error
     function recoverFile ($file, $source, $dir, $user, $snapshotId) {
+        $result['success'] = 0;
+        $result['message'] = null;
         // source path and destination path depend on source of file/folder
         $app = Slim\Slim::getInstance();
         $log = $app->getLog();
@@ -351,7 +354,8 @@ require 'vendor/autoload.php';
         // /tubfs/.snapshots/snap_<snapshotId>/owncloud/data/<user>/files/<dir>/
         switch ($source) {
             case 'tubfsss':
-                $recover_source= '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/'.$dir.'/'.$file;
+                $recover_source = '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/'.$dir.'/'.$file;
+                $recover_source_dir = '/tubfs/.snapshots/snap_'.$snapshotId.'/owncloud/data/'.$user.'/files/'.$dir;
                 break;
             default:
                 $recover_source= '';
@@ -372,7 +376,9 @@ require 'vendor/autoload.php';
         if (!file_exists($recover_destination)) {  
             if (!mkdir($recover_destination, 0700, true)) {
                 $log->info('error while trying to mkdir destination path');
-                return 0;
+                $result['success'] = 0;
+                $result['message'] = 'error while trying to mkdir destination path';
+                json_encode($result);
             }
         } 
         else {
@@ -380,6 +386,12 @@ require 'vendor/autoload.php';
             // could try to recover files beneath if they do not already
             //  exist in destination, or rename with "_X"
             $log->info('directory already exists in destination path!');
+            if (count(glob($recover_source_dir.'/')) === 0 ) {
+                $log->info('source directory is empty, aborting recovery!');
+                $result['success'] = 0;
+                $result['message'] = 'source directory is empty, aborting recovery!';
+                return json_encode($result);
+            }
         }
         /* move (copy and delete files) - not using exec!
         $cmd = 'mv '.$recover_source.' '.$recover_destination;
@@ -388,11 +400,11 @@ require 'vendor/autoload.php';
          */
         if (!rename($recover_source, $recover_destination.$file)) {
             $log->info('Error while trying to rename (move) file or folder');
-            return 0;
+            $result['success'] = 0;
+            $result['message'] = 'Error while trying to rename (move) file or folder';
         }
-        return 1;
-         
-        //return $file;
+        return json_encode($result);
+        //return 1;
     }
     
     // get permissions of given file
