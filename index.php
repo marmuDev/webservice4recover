@@ -406,6 +406,13 @@ function recoverFile ($file, $source, $dir, $user, $snapshotId) {
     else {
         $message = 'all good';
     }
+    /* operation not permitted -> only super user is allowed to do so
+     * moves file, but filelist not updated + HTML-Slim-error message 
+    if (!chown($recover_destination.$file, $user)){
+        $message = 'Error while trying to set permissions for user (chmod)';
+        $log->info($message);
+    }
+    */
     //$response->write($message);
     //$result = $response->finalize();
     // response is implicitly send back?
