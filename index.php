@@ -40,20 +40,14 @@ $log = $app->getLog();
 // log level may be altered during execution
 //$app->log->setLevel(\Slim\Log::DEBUG);
 
-// define HTTP routes 
-$app->get('/hello/:name', function ($name) {
-    echo "Hello, " . $name;
-});
-
-// Using Get HTTP Method and process listExt4 
+// define routes 
 // http://localhost/webservice4recover/index.php/files/listExt4/testdir
 // how to pass "/" via URL?  "%2F" doesn't work!
 // --> http://httpd.apache.org/docs/2.2/mod/core.html#allowencodedslashes
 //      NoDecode -> %2F works!
 // how to pass further dirs like "testdir2" ? /testdir%2Ftestdir2
 //  http://localhost/webservice4recover/index.php/files/listExt4/gpfs-folder1%2Fgpfs-folder2
-// now path as optional parameter -> if empty, list baseDir 
-//  
+// now path as optional parameter -> if empty, list baseDir
 //$app->get('/files/listExt4/(:path)', 'listExt4'); 
 //$app->get('/files/listGpfsSs/(:path)', 'listGpfsSs'); 
 // one listDir for all
@@ -81,6 +75,7 @@ $app->get('/files/search/:filename', 'search');
  * @return String $ocJsonFiles contents of directory in 
  *          
  */
+// when parameter is optional set default value
 //function listDirGeneric($path='/', $source) {
 function listDirGeneric($path, $source) {
     //var_dump($path);
@@ -106,8 +101,8 @@ function listDirGeneric($path, $source) {
 
 /* obsolete -> listDirGeneric!
  * 
- * @param $path: directory to be listed
- * @return dirJson: contents of directory in JSON 
+ * @param string $path: directory to be listed
+ * @return string $files contents of directory in JSON 
  *          
  */
 function listGpfsSs($path='/') {
@@ -127,9 +122,9 @@ function listGpfsSs($path='/') {
 
  /*
  * processes dir on local file system via exec() - obsolete
- * @param $dir: directory to process
- * @param $source: data source of backuped file or snapshot, to be written in file info
- * @return $dirObjects: two dimensional array with files and folders 
+ * @param string $dir: directory to process
+ * @param string $source: data source of backuped file or snapshot, to be written in file info
+ * @return array $dirObjects: two dimensional array with files and folders 
  */
 function listDirViaExec($dir, $source) {
     if ($dir[strlen($dir) - 1] != '/') {
@@ -160,54 +155,7 @@ function listDirViaExec($dir, $source) {
         2 => string '-rw-r--r-- 1 root root    0 (1439310742) gpfs-file2' (length=51)
         3 => string 'drwxr-xr-x 3 root root 4096 (1439310728) gpfs-folder1' (length=53)
      * could separate filename using "\d\d\d\d\d\d\d\d\d\d) " but what if a filename consists of such a string
-    while ($object = readdir($dirHandle)) {
-        if (!in_array($object, array('.', '..'))) {
-            $filename = $dir . $object;
-            // create file object according to JSON file expected by recover app filelist
-            $fileObject = array(
-                'id'            => $i,
-                'parentId'      => 'null',
-                // see ownCloud core/apps/files/lib/helper/formatFileInfo(FileInfo $i)
-                // -> \OCP\Util::formatDate($i['mtime']);
-                // ---> Deprecated 8.0.0 Use \OC::$server->query('DateTimeFormatter') instead
-                // --> use formatFiles($files) in recover/lib/helper.php
-                // back to format the date here, how to get german Month?
-                'date'          => date('d. F Y \u\m H:i:s \M\E\S\Z', filemtime($filename)),
-                //'date'          => filemtime($filename),
-                // see ownCloud core/apps/files/lib/helper/formatFileInfo(FileInfo $i)
-                'mtime'         => filemtime($filename)*1000,
-                // just using static image for now, for more see: foramtFileInfo(FileInfo $i)
-                // https://github.com/owncloud/core/blob/master/apps/files/lib/helper.php
-                // should support all OC filetype, at least file.svg and folder icon
-                //'icon'          => '/core/core/img/filetypes/file.svg',
-                'icon'          => null, // -> icon is set within recover
-                'name'          => $object,
-                // also static for now!
-                'permission'    => 1,
-                //'mimetype'      => 'application/octet-stream',
-                // 'mimetype'      => null, trying to use mimetype for source now
-                'mimetype'      => $source,
-                'type'          => filetype($filename),
-                // size not supported by trashbin, always "null" in original Trashbin
-                //'size'          => filesize($filename),
-                'size'          => null,
-                //'perm'          => getFilePermissions($filename),
-                //'type'        => filetype($filename),
-                'etag'          => 'null',
-                //'extraData'     => './'.$object.'.'.filemtime($filename)
-                // this will be displayed when hoovering over a file/dir, could be extended with source
-                //'extraData'     => './'.$object.'('.$source.')',
-                'extraData'     => './'.$object,
-                'displayName'   => $object,
-                'dir'           => $dir,
-                'source'        => $source
-            );
-            $dirObjects[] = $fileObject;
-            $i++;
-        }
-
-    }
-     */
+   */
     return $dirObjects;
 }
 
@@ -224,9 +172,9 @@ function genJsonForOcFileList($files){
 /*
  * adapted from: http://php.net/manual/de/function.readdir.php
  * processes dir on local file system
- * @param $dir: directory to process
- * @param $source: data source of backuped file or snapshot, to be written in file info
- * @return $dirObjects: two dimensional array with files / folders and info on them
+ * @param strin $dir: directory to process
+ * @param string $source: data source of backuped file or snapshot, to be written in file info
+ * @return array $dirObjects: two dimensional array with files / folders and info on them
  */
 function listDir($dir, $source) {
     $snapshot = 'null';
