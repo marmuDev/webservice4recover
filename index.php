@@ -41,29 +41,18 @@ $log = $app->getLog();
 //$app->log->setLevel(\Slim\Log::DEBUG);
 
 // define routes 
-// http://localhost/webservice4recover/index.php/files/listExt4/testdir
-// how to pass "/" via URL?  "%2F" doesn't work!
 // --> http://httpd.apache.org/docs/2.2/mod/core.html#allowencodedslashes
 //      NoDecode -> %2F works!
-// how to pass further dirs like "testdir2" ? /testdir%2Ftestdir2
-//  http://localhost/webservice4recover/index.php/files/listExt4/gpfs-folder1%2Fgpfs-folder2
-// now path as optional parameter -> if empty, list baseDir
-//$app->get('/files/listExt4/(:path)', 'listExt4'); 
-//$app->get('/files/listGpfsSs/(:path)', 'listGpfsSs'); 
 // one listDir for all
 $app->get('/files/listDirGeneric/:path/:source', 'listDirGeneric'); 
 
 /*
  * triggers recovery of specified file or folder
  */
-//$app->post('/files/recover/:file/:source', 'recoverFile'); 
 $app->get('/files/recover/:file/:source/:dir/:user/:snapshotId', 'recoverFile'); 
 
 /*
  * to do: further method to search files within Backups/Snapshots
- * how to use params (filename, mtime, size)
- * $app->get('/users/:id' -> see above! same with PUT
- * 
  */
 $app->get('/files/search/:filename', 'search'); 
 
@@ -78,7 +67,6 @@ $app->get('/files/search/:filename', 'search');
 // when parameter is optional set default value
 //function listDirGeneric($path='/', $source) {
 function listDirGeneric($path, $source) {
-    //var_dump($path);
     $app = Slim\Slim::getInstance();
     $log = $app->getLog();
     $log->info('---------------- LISTDIR ----------------');
@@ -87,12 +75,11 @@ function listDirGeneric($path, $source) {
     if (substr($path, 0, 1) != '/') {
         $path = '/'.$path;
     }
-    
-    // base dir on OC server for snapshots depends on server and source 
-    //  /gpfs/.snapshots | /tubfs/.snapshots 
+    /* base dir on OC server for snapshots depends on server and source 
+     * /gpfs/.snapshots | /tubfs/.snapshots 
+     * sorting files array in OC pagecontroller!
+     */
     $files = listDir($path, $source);
-    // TO DO: sort files array -> in OC pagecontroller!
-
     // json_encode + genJsonForOcFilelist
     $ocJsonFiles = genJsonForOcFileList(json_encode($files));
     $log->info($ocJsonFiles);
@@ -133,12 +120,6 @@ function listDirViaExec($dir, $source) {
     // OS / config dependent, ubuntu = www-data
     // use only if command should be run as another user
     //$username='www-data';
-    /* test if e.g. "touch" is denied
-     * marcus@ocdev:/gpfs/.snapshots$ sudo -u www-data touch test
-     * touch: »test“ kann nicht berührt werden: Keine Berechtigung 
-     * ABER: sudo -u www-data find ./ -name gpfs-file1, somit alle commands erlaubt
-     * --> sudo visudo, let www-data only use ls, and later cp. 
-     */
     //$command = 'sudo -u '.$username.' ls -l ';
     $command = 'sudo ls -l --time-style=+\(%s\) ';
     $dirObjects = array();
@@ -300,12 +281,12 @@ function recoverFile ($file, $source, $dir, $user, $snapshotId) {
     }
     $log->info('source path = '.$recover_source);
     // destination also source dependent, e.g. /gpfs instead of tubfs
-    // /tubfs/owncloud/data/<user>/recovered/<dir>/
+    // /tubfs/owncloud/data/<user>/recovered/<snapshot>/<dir>/
     if ($dir !== '/') {
-        $recover_destination = '/home/'.$user.'/recovered/'.$dir.'/';
+        $recover_destination = '/home/'.$user.'/recovered/snapshot'.$snapshotId.'/'.$dir.'/';
     }
     else {
-        $recover_destination = '/home/'.$user.'/recovered/';
+        $recover_destination = '/home/'.$user.'/recovered/snapshot'.$snapshotId.'/';
     }
     $log->info('destination path = '.$recover_destination);
     // mkdir if not existent 
@@ -342,11 +323,7 @@ function recoverFile ($file, $source, $dir, $user, $snapshotId) {
             //$response->write($message);
         }
     }
-    /* move (copy and delete files) - not using exec!
-    $cmd = 'mv '.$recover_source.' '.$recover_destination;
-    $log->info('cmd = '.$cmd);
-    exec($cmd, $output, $return_val);
-     */
+    // move via rename
     if (!rename($recover_source, $recover_destination.$file)) {
         $message = 'Error while trying to rename (move) file or folder';
         $log->info($message);
@@ -354,22 +331,7 @@ function recoverFile ($file, $source, $dir, $user, $snapshotId) {
     else {
         $message = 'all good';
     }
-    /* operation not permitted -> only super user is allowed to do so
-     * moves file, but filelist not updated + HTML-Slim-error message 
-    if (!chown($recover_destination.$file, $user)){
-        $message = 'Error while trying to set permissions for user (chmod)';
-        $log->info($message);
-    }
-    */
-    //$response->write($message);
-    //$result = $response->finalize();
-    // response is implicitly send back?
     $log->info(json_encode($message));
-    //header("Content-Type: application/json"); 
-    // echo()’d content is captured in an output buffer and appended to the
-    // response body before the HTTP response is returned to the client
-    //echo json_encode($result);
-    //echo json_encode('200, '.$message);
     echo '{"statusCode":200,"message":"'.$message.'"}';
 }
 
